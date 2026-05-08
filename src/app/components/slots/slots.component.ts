@@ -129,9 +129,10 @@ export class SlotsComponent implements OnDestroy {
     this.girando   = true;
     this.strips    = [this.genStrip(), this.genStrip(), this.genStrip()];
 
-    this.stripEls.forEach(el =>
-      el.nativeElement.classList.add('spinning')
-    );
+    // Espera un tick para que Angular renderice los nuevos strips antes de añadir spinning
+    setTimeout(() => {
+      this.stripEls.forEach(el => el.nativeElement.classList.add('spinning'));
+    }, 0);
 
     this.casino.jugarSlots(this.apuesta).subscribe({
       next:  r => this.stopReels(r.resultado),
@@ -144,27 +145,38 @@ export class SlotsComponent implements OnDestroy {
   }
 
   private stopReels(resultado: ResultadoSlots): void {
-    // Captura referencias antes de cualquier re-render
-    const els = this.stripEls.toArray();
+    const DELAYS = [800, 1100, 1400]; // parada escalonada
+    const LAST   = DELAYS[DELAYS.length - 1] + 600; // tiempo total + animación
 
-    els.forEach((el, i) => {
+    // Para cada rodillo: quitar spinning con retardo y animar bounce con CSS
+    DELAYS.forEach((delay, i) => {
       setTimeout(() => {
-        el.nativeElement.classList.remove('spinning');
-
-        // Anima sobre el elemento capturado — sin actualizar strips aquí
-        gsap.fromTo(el.nativeElement,
-          { y: -30 },
-          {
-            y: 0, duration: 0.55, ease: 'elastic.out(1, 0.45)',
-            onComplete: () => { if (i === els.length - 1) this.onAllStopped(resultado); }
-          }
-        );
-      }, i * 250 + 800);
+        const el = this.stripEls.toArray()[i];
+        if (!el) return;
+        const node = el.nativeElement;
+        node.classList.remove('spinning');
+        // Bounce con CSS transition — sin depender de GSAP onComplete
+        node.style.transition = 'none';
+        node.style.transform  = 'translateY(-22px)';
+        requestAnimationFrame(() => {
+          node.style.transition = 'transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)';
+          node.style.transform  = 'translateY(0)';
+        });
+      }, delay);
     });
+
+    // Finaliza cuando el último rodillo termina su animación
+    setTimeout(() => {
+      this.stripEls.forEach(el => {
+        el.nativeElement.style.transition = '';
+        el.nativeElement.style.transform  = '';
+      });
+      this.onAllStopped(resultado);
+    }, LAST);
   }
 
   private onAllStopped(resultado: ResultadoSlots): void {
-    // Actualiza strips con los símbolos ganadores DESPUÉS de todas las animaciones
+    // Muestra los símbolos ganadores en el centro de cada strip
     this.strips = resultado.rodillos.map(sym => {
       const before = Array.from({ length: 3 }, () => aleatorio());
       const after  = Array.from({ length: 4 }, () => aleatorio());
