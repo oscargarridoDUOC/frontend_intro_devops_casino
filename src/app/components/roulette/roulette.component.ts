@@ -251,7 +251,8 @@ export class RouletteComponent implements AfterViewInit, OnDestroy {
   girando = false;
   error = '';
 
-  private currentRotation = 0;
+  // Rotación total acumulada que GSAP tiene aplicada en este momento
+  private totalRotation = 0;
 
   isRojo = (n: number) => RED.has(n);
 
@@ -339,25 +340,37 @@ export class RouletteComponent implements AfterViewInit, OnDestroy {
   }
 
   private animarRueda(resultado: ResultadoRuleta): void {
-    const idx        = WHEEL_ORDER.indexOf(resultado.numero);
-    const total      = WHEEL_ORDER.length;
-    const segDeg     = 360 / total;
-    const targetDeg  = -(idx * segDeg + segDeg / 2);
-    const spins      = 360 * (4 + Math.random() * 2);
-    const finalAngle = this.currentRotation + spins + targetDeg - (this.currentRotation % 360);
+    const idx    = WHEEL_ORDER.indexOf(resultado.numero);
+    const segDeg = 360 / WHEEL_ORDER.length; // 9.7297°
 
-    // Rotar el wrapper div (HTML), no el SVG — GSAP maneja correctamente
-    // el transform-origin en elementos HTML con '50% 50%'
+    // El segmento idx tiene su centro a (idx + 0.5) * segDeg grados
+    // en sentido horario desde el tope (posición 0° del wrapper en reposo)
+    const segCenter = ((idx + 0.5) * segDeg) % 360;
+
+    // Rotación neta que necesita el wrapper para colocar segCenter en el tope (0°):
+    // Girando en sentido horario, el segmento que estaba a `segCenter` llega al tope
+    // cuando el wrapper ha girado `360 - segCenter` adicionales
+    const targetNet = (360 - segCenter + 360) % 360;
+
+    // Cuánto falta girar desde la posición actual para llegar a targetNet (siempre positivo)
+    const currentNet = ((this.totalRotation % 360) + 360) % 360;
+    let   delta      = (targetNet - currentNet + 360) % 360;
+    if (delta < 5) delta += 360; // garantiza al menos una vuelta extra de seguridad
+
+    // Vueltas completas de animación (4-6)
+    const spins      = 360 * (4 + Math.floor(Math.random() * 3));
+    const finalAngle = this.totalRotation + spins + delta;
+    this.totalRotation = finalAngle;
+
     gsap.to(this.wheelWrapperEl.nativeElement, {
       rotation: finalAngle,
       transformOrigin: '50% 50%',
       duration: 4 + Math.random(),
       ease: 'power4.out',
       onComplete: () => {
-        this.currentRotation = finalAngle % 360;
-        this.resultado  = resultado;
-        this.girando    = false;
-        this.apuestas   = [];
+        this.resultado = resultado;
+        this.girando   = false;
+        this.apuestas  = [];
         this.addToHistory(resultado.numero);
       }
     });
