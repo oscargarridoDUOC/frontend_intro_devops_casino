@@ -180,15 +180,19 @@ export class BlackjackComponent implements OnDestroy {
     if (!this.estado) return;
     this.error    = '';
     this.cargando = true;
+
+    // Captura elementos con face-down ANTES del update de estado
+    const hiddenEls = this.dealCards.toArray()
+      .filter(el => el.nativeElement.classList.contains('face-down'));
+
     this.casino.blackjackAccion(this.estado.sesionId, a).subscribe({
       next: e => {
-        const prevBancaHidden = this.estado!.banca.filter(c => c.oculta).length;
         this.estado   = e;
         this.cargando = false;
         this.animarNuevasCartas();
-        if (e.terminada && prevBancaHidden > 0) this.flipHiddenCards();
+        if (e.terminada && hiddenEls.length > 0) this.flipElements(hiddenEls);
         if (e.terminada && (e.resultado === 'gana' || e.resultado === 'blackjack')) {
-          setTimeout(() => spawnVictoryParticles(), 300);
+          setTimeout(() => spawnVictoryParticles(), 500);
         }
       },
       error: e => { this.cargando = false; this.error = e.error?.error || 'Acción inválida'; }
@@ -197,35 +201,34 @@ export class BlackjackComponent implements OnDestroy {
 
   private animarNuevasCartas(): void {
     setTimeout(() => {
-      const cards = this.dealCards.toArray();
-      const newCards = cards.slice(this.prevCardCount);
-      newCards.forEach((el, i) => {
+      const all = this.dealCards.toArray();
+      const nuevas = all.slice(this.prevCardCount);
+      nuevas.forEach((el, i) => {
         gsap.from(el.nativeElement, {
-          y: -80, x: 0, rotation: -15, opacity: 0,
+          y: -80, rotation: -15, opacity: 0,
           duration: 0.45, ease: 'back.out(1.5)',
           delay: i * 0.15,
         });
       });
-      this.prevCardCount = cards.length;
+      this.prevCardCount = all.length;
     }, 0);
   }
 
-  private flipHiddenCards(): void {
-    setTimeout(() => {
-      const cards = this.dealCards.toArray();
-      cards.forEach(el => {
-        if (el.nativeElement.classList.contains('face-down')) {
-          gsap.to(el.nativeElement, {
-            rotateY: 90, duration: 0.3, ease: 'power2.in',
-            onComplete: () => {
-              el.nativeElement.classList.remove('face-down');
-              el.nativeElement.classList.add('face-up');
-              gsap.from(el.nativeElement, { rotateY: -90, duration: 0.3, ease: 'power2.out' });
-            }
-          });
+  private flipElements(hiddenEls: ElementRef<HTMLElement>[]): void {
+    hiddenEls.forEach(el => {
+      const node = el.nativeElement;
+      // Restaura face-down temporalmente para animar el flip antes del re-render
+      node.classList.add('face-down');
+      node.classList.remove('face-up');
+      gsap.to(node, {
+        rotateY: 90, duration: 0.3, ease: 'power2.in',
+        onComplete: () => {
+          node.classList.remove('face-down');
+          node.classList.add('face-up');
+          gsap.from(node, { rotateY: -90, duration: 0.3, ease: 'power2.out' });
         }
       });
-    }, 0);
+    });
   }
 
   reiniciar(): void {

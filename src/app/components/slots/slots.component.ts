@@ -144,23 +144,19 @@ export class SlotsComponent implements OnDestroy {
   }
 
   private stopReels(resultado: ResultadoSlots): void {
-    const symbols = resultado.rodillos;
+    // Captura referencias antes de cualquier re-render
+    const els = this.stripEls.toArray();
 
-    this.stripEls.forEach((el, i) => {
+    els.forEach((el, i) => {
       setTimeout(() => {
         el.nativeElement.classList.remove('spinning');
 
-        const before = Array.from({ length: 3 }, () => aleatorio());
-        const after  = Array.from({ length: 4 }, () => aleatorio());
-        this.strips  = this.strips.map((s, idx) =>
-          idx === i ? [...before, symbols[i], ...after] : s
-        );
-
+        // Anima sobre el elemento capturado — sin actualizar strips aquí
         gsap.fromTo(el.nativeElement,
           { y: -30 },
           {
             y: 0, duration: 0.55, ease: 'elastic.out(1, 0.45)',
-            onComplete: () => { if (i === 2) this.onAllStopped(resultado); }
+            onComplete: () => { if (i === els.length - 1) this.onAllStopped(resultado); }
           }
         );
       }, i * 250 + 800);
@@ -168,6 +164,12 @@ export class SlotsComponent implements OnDestroy {
   }
 
   private onAllStopped(resultado: ResultadoSlots): void {
+    // Actualiza strips con los símbolos ganadores DESPUÉS de todas las animaciones
+    this.strips = resultado.rodillos.map(sym => {
+      const before = Array.from({ length: 3 }, () => aleatorio());
+      const after  = Array.from({ length: 4 }, () => aleatorio());
+      return [...before, sym, ...after];
+    });
     this.rodillos  = resultado.rodillos;
     this.resultado = resultado;
     this.girando   = false;

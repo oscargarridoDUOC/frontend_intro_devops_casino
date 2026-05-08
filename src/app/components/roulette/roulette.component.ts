@@ -337,9 +337,10 @@ export class RouletteComponent implements AfterViewInit, OnDestroy {
     const spins      = 360 * (4 + Math.random() * 2);
     const finalAngle = this.currentRotation + spins + targetDeg - (this.currentRotation % 360);
 
+    // svgOrigin usa coordenadas del viewBox (300×300), centro = 150,150
     gsap.to(this.wheelSvgEl.nativeElement, {
       rotation: finalAngle,
-      transformOrigin: '150px 150px',
+      svgOrigin: '150 150',
       duration: 4 + Math.random(),
       ease: 'power4.out',
       onComplete: () => {
@@ -351,10 +352,15 @@ export class RouletteComponent implements AfterViewInit, OnDestroy {
       }
     });
 
-    gsap.to(this.wheelSvgEl.nativeElement, {
-      x: '+=2', yoyo: true, repeat: 20, duration: 0.08,
-      ease: 'none', delay: 2
-    });
+    // Vibración del puntero sin acumulación de x
+    const pointer = this.wheelSvgEl.nativeElement.closest('.wheel-wrap')?.querySelector('.pointer');
+    if (pointer) {
+      gsap.to(pointer, {
+        x: 3, yoyo: true, repeat: 19, duration: 0.07,
+        ease: 'none', delay: 2,
+        onComplete: () => gsap.set(pointer, { x: 0 })
+      });
+    }
   }
 
   private addToHistory(n: number): void {
