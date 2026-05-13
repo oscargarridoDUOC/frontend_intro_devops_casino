@@ -1,0 +1,14 @@
+services:
+  frontend:
+    build: .
+    container_name: casino-frontend
+    restart: always
+    ports:
+      - "80:8080"
+    networks:
+      - casino-network
+
+networks:
+  casino-network:
+    external: true
+    name: casino-network
