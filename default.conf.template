@@ -1,0 +1,31 @@
+server {
+    listen 8080; # Puerto obligatorio para nginx-unprivileged
+    server_name _;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # Reverse proxy hacia el backend
+    location /api/ {
+        # EL CAMBIO ESTÁ AQUÍ: Quitamos el "api/" después del puerto.
+        # Al terminar en "/", Nginx reemplaza "/api/" por "/" automáticamente.
+        # Ejemplo: navegador pide /api/auth/profile -> backend recibe /auth/profile
+        proxy_pass         http://${BACKEND_HOST}:3000; 
+        
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+    }
+
+    # Health check del backend (esta se queda igual)
+    location /health {
+        proxy_pass http://${BACKEND_HOST}:3000/health;
+    }
+
+    # Soporte para Single Page App (SPA)
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
