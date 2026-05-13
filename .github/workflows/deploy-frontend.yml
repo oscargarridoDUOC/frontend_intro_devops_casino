@@ -1,4 +1,4 @@
-name: Build & Deploy frontend
+name: Build & Deploy Frontend
 
 on:
   workflow_dispatch:
@@ -10,13 +10,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: aws-actions/configure-aws-credentials@v4
+      
+      - name: Configurar credenciales AWS
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-session-token:     ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region:            ${{ secrets.AWS_REGION }}
-      - id: ecr
+
+      - name: Login a ECR
+        id: ecr
         uses: aws-actions/amazon-ecr-login@v2
         with:
           mask-password: 'true'
@@ -26,8 +30,7 @@ jobs:
           REGISTRY: ${{ steps.ecr.outputs.registry }}
         run: |
           IMAGE=$REGISTRY/casino-frontend
-          docker build -t $IMAGE:${{ github.sha }} -t $IMAGE:latest .
-          docker push $IMAGE:${{ github.sha }}
+          docker build -t $IMAGE:latest .
           docker push $IMAGE:latest
 
       - name: Desplegar en EC2-frontend
@@ -35,17 +38,20 @@ jobs:
         env:
           IMAGE: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/casino-frontend:latest
         with:
-          host: ${{ secrets.EC2_FRONTEND_HOST }}
-          username: ec2-user
+          host: ${{ secrets.EC2_FRONTEND_PUBLIC_IP }} # Asegúrate de que este Secret tenga la IP Pública
+          username: ec2-user # Correcto para Amazon Linux 2023
           key: ${{ secrets.EC2_SSH_KEY }}
           envs: IMAGE
           script: |
-            aws ecr get-login-password --region ${{ secrets.AWS_REGION }} \
-              | docker login --username AWS --password-stdin \
-                ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+            # Login en ECR
+            aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+            
+            # Limpiar y desplegar
             docker pull "$IMAGE"
             docker rm -f casino-frontend || true
+            
+            # Mapeo de puertos: 80 (público) -> 8080 (interno Nginx)
             docker run -d --name casino-frontend --restart unless-stopped \
               -p 80:8080 \
-              -e BACKEND_HOST=${{ secrets.BACKEND_HOST_PRIVATE }} \
+              -e BACKEND_HOST=${{ secrets.EC2_BACKEND_PRIVATE_IP }} \
               "$IMAGE"
