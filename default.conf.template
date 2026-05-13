@@ -5,10 +5,13 @@ server {
     root /usr/share/nginx/html;
     index index.html;
 
-    # Reverse proxy hacia el backend (IP privada de la EC2 Backend)
-    # ${BACKEND_HOST} se inyectará automáticamente desde el workflow
+    # Reverse proxy hacia el backend
     location /api/ {
-        proxy_pass         http://${BACKEND_HOST}:3000/api/;
+        # EL CAMBIO ESTÁ AQUÍ: Quitamos el "api/" después del puerto.
+        # Al terminar en "/", Nginx reemplaza "/api/" por "/" automáticamente.
+        # Ejemplo: navegador pide /api/auth/profile -> backend recibe /auth/profile
+        proxy_pass         http://${BACKEND_HOST}:3000/; 
+        
         proxy_http_version 1.1;
         proxy_set_header   Host              $host;
         proxy_set_header   X-Real-IP         $remote_addr;
@@ -16,13 +19,12 @@ server {
         proxy_set_header   X-Forwarded-Proto $scheme;
     }
 
-    # Health check del backend
+    # Health check del backend (esta se queda igual)
     location /health {
         proxy_pass http://${BACKEND_HOST}:3000/health;
     }
 
     # Soporte para Single Page App (SPA)
-    # Permite que al recargar en /lobby o /slots no de error 404
     location / {
         try_files $uri $uri/ /index.html;
     }
