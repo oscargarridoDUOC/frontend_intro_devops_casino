@@ -10,7 +10,7 @@ server {
         # EL CAMBIO ESTÁ AQUÍ: Quitamos el "api/" después del puerto.
         # Al terminar en "/", Nginx reemplaza "/api/" por "/" automáticamente.
         # Ejemplo: navegador pide /api/auth/profile -> backend recibe /auth/profile
-        proxy_pass         http://${BACKEND_HOST}:3000/; 
+        proxy_pass         http://${BACKEND_HOST}:3000; 
         
         proxy_http_version 1.1;
         proxy_set_header   Host              $host;
